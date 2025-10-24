@@ -444,18 +444,27 @@ module.exports = (db) => {
     });
 
     // Get license details (admin only)
-    router.get('/:licenseKey', authenticateToken, (req, res) => {
+    router.get('/:licenseKey', authenticateToken, async (req, res) => {
         try {
-            const license = db.getLicenseByKey(req.params.licenseKey);
+            console.log('🔍 Fetching license details for:', req.params.licenseKey);
+
+            // Test direct database query
+            const testQuery = 'SELECT * FROM licenses WHERE license_key = $1';
+            const testResult = await db.pool.query(testQuery, [req.params.licenseKey]);
+            console.log('🔍 Direct DB query result:', testResult.rows);
+
+            const license = await db.getLicenseByKey(req.params.licenseKey);
+            console.log('📋 License data from DB:', license);
 
             if (!license) {
                 return res.status(404).json({ error: 'License not found' });
             }
 
             // Get validation logs
-            const validations = db.getValidationLogs(req.params.licenseKey, 20);
+            const validations = await db.getValidationLogs(req.params.licenseKey, 20);
+            console.log('📊 Validation logs:', validations);
 
-            res.json({
+            const responseData = {
                 success: true,
                 license: {
                     licenseKey: license.license_key,
@@ -475,7 +484,10 @@ module.exports = (db) => {
                     revokeReason: license.revoke_reason
                 },
                 validations
-            });
+            };
+
+            console.log('📤 Response data:', JSON.stringify(responseData, null, 2));
+            res.json(responseData);
         } catch (error) {
             console.error('Error fetching license:', error);
             res.status(500).json({ error: 'Failed to fetch license' });

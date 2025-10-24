@@ -60,7 +60,7 @@ app.use(helmet({
 }));
 
 app.use(cors({
-    origin: (process.env.ALLOWED_ORIGINS || 'http://localhost:3001').split(','),
+    origin: true, // Allow all origins for development
     credentials: true
 }));
 
@@ -71,13 +71,30 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 100, // Limit each IP to 100 requests per windowMs
-    message: 'Too many requests, please try again later.'
+    message: 'Too many requests, please try again later.',
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (req, res) => {
+        res.status(429).json({
+            error: 'Too many requests',
+            message: 'Please try again later.'
+        });
+    }
 });
 
 const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 5, // Only 5 login attempts per 15 minutes
-    message: 'Too many login attempts, please try again later.'
+    windowMs: 5 * 60 * 1000, // Reduced to 5 minutes
+    max: 10, // Increased to 10 attempts per 5 minutes
+    message: 'Too many login attempts, please try again later.',
+    standardHeaders: true,
+    legacyHeaders: false,
+    skipSuccessfulRequests: true, // Don't count successful logins
+    handler: (req, res) => {
+        res.status(429).json({
+            error: 'Too many login attempts',
+            message: 'Please try again in 5 minutes.'
+        });
+    }
 });
 
 // Static files (admin portal)
@@ -95,6 +112,21 @@ app.get('/api/health', (req, res) => {
         version: '1.0.0'
     });
 });
+
+// Development: Rate limit reset endpoint
+if (process.env.NODE_ENV !== 'production') {
+    app.post('/api/dev/reset-rate-limit', (req, res) => {
+        // Clear rate limit stores
+        authLimiter.resetKey(req.ip);
+        apiLimiter.resetKey(req.ip);
+
+        res.json({
+            success: true,
+            message: 'Rate limits reset for your IP',
+            timestamp: new Date().toISOString()
+        });
+    });
+}
 
 // Serve admin portal for all other routes
 app.get('*', (req, res) => {

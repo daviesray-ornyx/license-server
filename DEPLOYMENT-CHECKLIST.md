@@ -425,3 +425,4 @@ Your license server is now production-ready and secure!
 - Check logs: `pm2 logs` or platform-specific logs
 - Review documentation: README.md
 - Check database: Connect with psql or pgAdmin
+

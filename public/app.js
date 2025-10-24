@@ -646,3 +646,4 @@ window.deleteLicense = deleteLicense;
 window.generateOfflineFile = generateOfflineFile;
 window.closeModal = closeModal;
 
+

@@ -14,6 +14,9 @@ async function resetAdmin() {
         console.log('🔧 Resetting admin user...');
         console.log(`   Username: ${username}`);
 
+        // Delete activity logs first to avoid foreign key constraint
+        await db.pool.query('DELETE FROM activity_logs WHERE user_id IN (SELECT id FROM admin_users WHERE username = $1)', [username]);
+
         // Delete existing admin user
         const deleteQuery = 'DELETE FROM admin_users WHERE username = $1';
         await db.pool.query(deleteQuery, [username]);
@@ -38,4 +41,5 @@ async function resetAdmin() {
 }
 
 resetAdmin();
+
 
