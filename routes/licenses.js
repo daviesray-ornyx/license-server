@@ -129,7 +129,7 @@ module.exports = (db) => {
             // Get license
             console.log('🔍 [' + requestId + '] Looking up license in database...');
             console.log('   - License Key to lookup:', licenseKey);
-            
+
             // Check if license exists at all
             const allLicenses = await db.getAllLicenses({ limit: 10 });
             console.log('📊 [' + requestId + '] Total licenses in database:', allLicenses.length);
@@ -141,7 +141,7 @@ module.exports = (db) => {
             } else {
                 console.log('⚠️  [' + requestId + '] Database is EMPTY - No licenses found!');
             }
-            
+
             const license = await db.getLicenseByKey(licenseKey);
 
             if (!license) {
@@ -259,7 +259,7 @@ module.exports = (db) => {
                 console.log('❌ [' + requestId + '] License has expired');
                 console.log('   - Expired At:', license.expires_at);
                 console.log('='.repeat(80) + '\n');
-                
+
                 await db.logValidation({
                     licenseKey,
                     deviceIdHash: hashDeviceId(deviceId),
@@ -360,7 +360,7 @@ module.exports = (db) => {
             if (!license) {
                 console.log('❌ [' + requestId + '] License not found');
                 console.log('-'.repeat(80) + '\n');
-                
+
                 await db.logValidation({
                     licenseKey,
                     deviceIdHash: hashDeviceId(deviceId),
