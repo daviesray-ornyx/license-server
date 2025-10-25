@@ -131,7 +131,7 @@ module.exports = (db) => {
             console.log('   - License Key to lookup:', licenseKey);
             
             // Check if license exists at all
-            const allLicenses = db.getAllLicenses({ limit: 10 });
+            const allLicenses = await db.getAllLicenses({ limit: 10 });
             console.log('📊 [' + requestId + '] Total licenses in database:', allLicenses.length);
             if (allLicenses.length > 0) {
                 console.log('📋 [' + requestId + '] Sample license keys in DB:');
@@ -142,15 +142,15 @@ module.exports = (db) => {
                 console.log('⚠️  [' + requestId + '] Database is EMPTY - No licenses found!');
             }
             
-            const license = db.getLicenseByKey(licenseKey);
+            const license = await db.getLicenseByKey(licenseKey);
 
             if (!license) {
                 console.log('❌ [' + requestId + '] License not found in database');
                 console.log('   - Searched for:', licenseKey);
                 console.log('   - Exact match required (case-sensitive)');
                 console.log('='.repeat(80) + '\n');
-                
-                db.logValidation({
+
+                await db.logValidation({
                     licenseKey,
                     deviceIdHash: hashDeviceId(deviceId),
                     validationType: 'activation',
@@ -160,7 +160,7 @@ module.exports = (db) => {
                     userAgent: req.headers['user-agent']
                 });
 
-                return res.status(404).json({ 
+                return res.status(404).json({
                     error: 'License key not found',
                     hint: 'Please generate a license first using the admin portal'
                 });
@@ -216,7 +216,7 @@ module.exports = (db) => {
                     console.log('❌ [' + requestId + '] Device mismatch - License bound to different device');
                     console.log('='.repeat(80) + '\n');
                     // Different device
-                    db.logValidation({
+                    await db.logValidation({
                         licenseKey,
                         deviceIdHash: deviceHash,
                         validationType: 'activation',
@@ -238,7 +238,7 @@ module.exports = (db) => {
                 console.log('   - Reason:', license.revoke_reason);
                 console.log('='.repeat(80) + '\n');
 
-                db.logValidation({
+                await db.logValidation({
                     licenseKey,
                     deviceIdHash: hashDeviceId(deviceId),
                     validationType: 'activation',
@@ -259,8 +259,8 @@ module.exports = (db) => {
                 console.log('❌ [' + requestId + '] License has expired');
                 console.log('   - Expired At:', license.expires_at);
                 console.log('='.repeat(80) + '\n');
-
-                db.logValidation({
+                
+                await db.logValidation({
                     licenseKey,
                     deviceIdHash: hashDeviceId(deviceId),
                     validationType: 'activation',
@@ -276,7 +276,7 @@ module.exports = (db) => {
             // Activate license
             console.log('🚀 [' + requestId + '] Activating license...');
             const deviceHash = hashDeviceId(deviceId);
-            db.activateLicense(licenseKey, deviceHash);
+            await db.activateLicense(licenseKey, deviceHash);
             console.log('✅ [' + requestId + '] License activated successfully');
 
             // Create license response
@@ -299,7 +299,7 @@ module.exports = (db) => {
             const signature = signLicense(licenseResponse, privateKey);
 
             // Log validation
-            db.logValidation({
+            await db.logValidation({
                 licenseKey,
                 deviceIdHash: deviceHash,
                 validationType: 'activation',
@@ -355,13 +355,13 @@ module.exports = (db) => {
             }
 
             console.log('🔍 [' + requestId + '] Looking up license...');
-            const license = db.getLicenseByKey(licenseKey);
+            const license = await db.getLicenseByKey(licenseKey);
 
             if (!license) {
                 console.log('❌ [' + requestId + '] License not found');
                 console.log('-'.repeat(80) + '\n');
-
-                db.logValidation({
+                
+                await db.logValidation({
                     licenseKey,
                     deviceIdHash: hashDeviceId(deviceId),
                     validationType: 'periodic',
@@ -381,7 +381,7 @@ module.exports = (db) => {
             if (license.device_id_hash !== deviceHash) {
                 console.log('❌ [' + requestId + '] Device ID mismatch');
                 console.log('-'.repeat(80) + '\n');
-                db.logValidation({
+                await db.logValidation({
                     licenseKey,
                     deviceIdHash,
                     validationType: 'periodic',
@@ -396,7 +396,7 @@ module.exports = (db) => {
 
             // Check if revoked
             if (license.status === 'revoked') {
-                db.logValidation({
+                await db.logValidation({
                     licenseKey,
                     deviceIdHash,
                     validationType: 'periodic',
@@ -414,7 +414,7 @@ module.exports = (db) => {
 
             // Check if expired
             if (new Date(license.expires_at) < new Date()) {
-                db.logValidation({
+                await db.logValidation({
                     licenseKey,
                     deviceIdHash,
                     validationType: 'periodic',
@@ -429,10 +429,10 @@ module.exports = (db) => {
 
             // Update validation timestamp
             console.log('🔄 [' + requestId + '] Updating validation timestamp...');
-            db.updateValidation(licenseKey);
+            await db.updateValidation(licenseKey);
 
             // Log validation
-            db.logValidation({
+            await db.logValidation({
                 licenseKey,
                 deviceIdHash,
                 validationType: 'periodic',
