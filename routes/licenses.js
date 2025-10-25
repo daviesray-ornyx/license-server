@@ -102,17 +102,38 @@ module.exports = (db) => {
 
     // Activate license (kiosk calls this)
     router.post('/activate', async (req, res) => {
+        const requestId = `ACT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        console.log('\n' + '='.repeat(80));
+        console.log(`🔑 [${requestId}] LICENSE ACTIVATION REQUEST`);
+        console.log('='.repeat(80));
+        console.log('📋 Request Details:');
+        console.log('   - Timestamp:', new Date().toISOString());
+        console.log('   - IP Address:', req.ip);
+        console.log('   - User-Agent:', req.headers['user-agent']);
+        console.log('   - Origin:', req.headers['origin'] || 'Not set');
+        
         try {
             const { licenseKey, deviceId, kioskInfo } = req.body;
+            
+            console.log('📝 Request Body:');
+            console.log('   - License Key:', licenseKey || 'MISSING');
+            console.log('   - Device ID:', deviceId ? `${deviceId.substring(0, 12)}...` : 'MISSING');
+            console.log('   - Kiosk Info:', kioskInfo ? JSON.stringify(kioskInfo, null, 2) : 'Not provided');
 
             if (!licenseKey || !deviceId) {
+                console.log('❌ [' + requestId + '] ACTIVATION FAILED: Missing required fields');
+                console.log('='.repeat(80) + '\n');
                 return res.status(400).json({ error: 'License key and device ID required' });
             }
 
             // Get license
+            console.log('🔍 [' + requestId + '] Looking up license in database...');
             const license = db.getLicenseByKey(licenseKey);
 
             if (!license) {
+                console.log('❌ [' + requestId + '] License not found in database');
+                console.log('='.repeat(80) + '\n');
+                
                 db.logValidation({
                     licenseKey,
                     deviceIdHash: hashDeviceId(deviceId),
@@ -125,13 +146,24 @@ module.exports = (db) => {
 
                 return res.status(404).json({ error: 'License key not found' });
             }
+            
+            console.log('✅ [' + requestId + '] License found:');
+            console.log('   - Kiosk Name:', license.kiosk_name);
+            console.log('   - Status:', license.status);
+            console.log('   - Issued At:', license.issued_at);
+            console.log('   - Expires At:', license.expires_at);
+            console.log('   - Currently Activated:', license.device_id_hash ? 'Yes' : 'No');
 
             // Check if already activated
             if (license.status === 'active' && license.device_id_hash) {
                 const deviceHash = hashDeviceId(deviceId);
+                console.log('🔄 [' + requestId + '] License already activated, checking device...');
+                console.log('   - Stored Device Hash:', license.device_id_hash.substring(0, 16) + '...');
+                console.log('   - Current Device Hash:', deviceHash.substring(0, 16) + '...');
 
                 // Check if same device
                 if (license.device_id_hash === deviceHash) {
+                    console.log('✅ [' + requestId + '] Same device - Returning existing license');
                     // Same device, return existing license
                     const licenseResponse = {
                         licenseKey: license.license_key,
@@ -148,11 +180,16 @@ module.exports = (db) => {
 
                     const signature = signLicense(licenseResponse, privateKey);
 
+                    console.log('📤 [' + requestId + '] Sending response with existing license');
+                    console.log('='.repeat(80) + '\n');
+                    
                     return res.json({
                         success: true,
                         license: { ...licenseResponse, signature }
                     });
                 } else {
+                    console.log('❌ [' + requestId + '] Device mismatch - License bound to different device');
+                    console.log('='.repeat(80) + '\n');
                     // Different device
                     db.logValidation({
                         licenseKey,
@@ -172,6 +209,10 @@ module.exports = (db) => {
 
             // Check if revoked
             if (license.status === 'revoked') {
+                console.log('❌ [' + requestId + '] License has been revoked');
+                console.log('   - Reason:', license.revoke_reason);
+                console.log('='.repeat(80) + '\n');
+                
                 db.logValidation({
                     licenseKey,
                     deviceIdHash: hashDeviceId(deviceId),
@@ -190,6 +231,10 @@ module.exports = (db) => {
 
             // Check if expired
             if (new Date(license.expires_at) < new Date()) {
+                console.log('❌ [' + requestId + '] License has expired');
+                console.log('   - Expired At:', license.expires_at);
+                console.log('='.repeat(80) + '\n');
+                
                 db.logValidation({
                     licenseKey,
                     deviceIdHash: hashDeviceId(deviceId),
@@ -204,8 +249,10 @@ module.exports = (db) => {
             }
 
             // Activate license
+            console.log('🚀 [' + requestId + '] Activating license...');
             const deviceHash = hashDeviceId(deviceId);
             db.activateLicense(licenseKey, deviceHash);
+            console.log('✅ [' + requestId + '] License activated successfully');
 
             // Create license response
             const licenseResponse = {
@@ -236,6 +283,14 @@ module.exports = (db) => {
                 userAgent: req.headers['user-agent']
             });
 
+            console.log('📤 [' + requestId + '] Sending response:');
+            console.log('   - License Key:', licenseResponse.licenseKey);
+            console.log('   - Kiosk Name:', licenseResponse.kioskName);
+            console.log('   - Activated At:', licenseResponse.activatedAt);
+            console.log('   - Expires At:', licenseResponse.expiresAt);
+            console.log('✅ [' + requestId + '] ACTIVATION SUCCESSFUL');
+            console.log('='.repeat(80) + '\n');
+
             res.json({
                 success: true,
                 license: {
@@ -244,23 +299,43 @@ module.exports = (db) => {
                 }
             });
         } catch (error) {
-            console.error('License activation error:', error);
+            console.error('❌ [' + requestId + '] License activation error:', error);
+            console.error('   Stack:', error.stack);
+            console.log('='.repeat(80) + '\n');
             res.status(500).json({ error: 'Activation failed' });
         }
     });
 
     // Validate license (periodic check)
     router.post('/validate', async (req, res) => {
+        const requestId = `VAL-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        console.log('\n' + '-'.repeat(80));
+        console.log(`✅ [${requestId}] LICENSE VALIDATION REQUEST`);
+        console.log('-'.repeat(80));
+        console.log('📋 Request Details:');
+        console.log('   - Timestamp:', new Date().toISOString());
+        console.log('   - IP Address:', req.ip);
+        
         try {
             const { licenseKey, deviceId } = req.body;
+            
+            console.log('📝 Request Body:');
+            console.log('   - License Key:', licenseKey || 'MISSING');
+            console.log('   - Device ID:', deviceId ? `${deviceId.substring(0, 12)}...` : 'MISSING');
 
             if (!licenseKey || !deviceId) {
+                console.log('❌ [' + requestId + '] VALIDATION FAILED: Missing required fields');
+                console.log('-'.repeat(80) + '\n');
                 return res.status(400).json({ error: 'License key and device ID required' });
             }
 
+            console.log('🔍 [' + requestId + '] Looking up license...');
             const license = db.getLicenseByKey(licenseKey);
 
             if (!license) {
+                console.log('❌ [' + requestId + '] License not found');
+                console.log('-'.repeat(80) + '\n');
+                
                 db.logValidation({
                     licenseKey,
                     deviceIdHash: hashDeviceId(deviceId),
@@ -273,10 +348,14 @@ module.exports = (db) => {
 
                 return res.status(404).json({ error: 'License not found' });
             }
+            
+            console.log('✅ [' + requestId + '] License found - Status:', license.status);
 
             // Check device ID
             const deviceHash = hashDeviceId(deviceId);
             if (license.device_id_hash !== deviceHash) {
+                console.log('❌ [' + requestId + '] Device ID mismatch');
+                console.log('-'.repeat(80) + '\n');
                 db.logValidation({
                     licenseKey,
                     deviceIdHash,
@@ -324,6 +403,7 @@ module.exports = (db) => {
             }
 
             // Update validation timestamp
+            console.log('🔄 [' + requestId + '] Updating validation timestamp...');
             db.updateValidation(licenseKey);
 
             // Log validation
@@ -336,13 +416,18 @@ module.exports = (db) => {
                 userAgent: req.headers['user-agent']
             });
 
+            console.log('✅ [' + requestId + '] VALIDATION SUCCESSFUL');
+            console.log('-'.repeat(80) + '\n');
+
             res.json({
                 valid: true,
                 validatedAt: new Date().toISOString(),
                 expiresAt: license.expires_at
             });
         } catch (error) {
-            console.error('License validation error:', error);
+            console.error('❌ [' + requestId + '] License validation error:', error);
+            console.error('   Stack:', error.stack);
+            console.log('-'.repeat(80) + '\n');
             res.status(500).json({ error: 'Validation failed' });
         }
     });
