@@ -23,6 +23,8 @@ const db = new LicenseDatabase(process.env.DATABASE_URL);
 
 // Initialize database and create default admin user
 async function initializeServer() {
+    // Make database available to all routes via app.locals
+    app.locals.db = db;
     try {
         // Initialize database tables
         await db.initialize();
@@ -103,6 +105,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // API Routes
 app.use('/api/auth', authLimiter, require('./routes/auth')(db));
 app.use('/api/licenses', apiLimiter, require('./routes/licenses')(db));
+app.use('/api/analytics-auth', apiLimiter, require('./routes/analytics-auth'));
 
 // Health check
 app.get('/api/health', (req, res) => {
