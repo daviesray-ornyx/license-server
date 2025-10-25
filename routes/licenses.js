@@ -111,10 +111,10 @@ module.exports = (db) => {
         console.log('   - IP Address:', req.ip);
         console.log('   - User-Agent:', req.headers['user-agent']);
         console.log('   - Origin:', req.headers['origin'] || 'Not set');
-        
+
         try {
             const { licenseKey, deviceId, kioskInfo } = req.body;
-            
+
             console.log('📝 Request Body:');
             console.log('   - License Key:', licenseKey || 'MISSING');
             console.log('   - Device ID:', deviceId ? `${deviceId.substring(0, 12)}...` : 'MISSING');
@@ -128,6 +128,7 @@ module.exports = (db) => {
 
             // Get license
             console.log('🔍 [' + requestId + '] Looking up license in database...');
+            console.log('   - License Key to lookup:', licenseKey);
             const license = db.getLicenseByKey(licenseKey);
 
             if (!license) {
@@ -146,13 +147,19 @@ module.exports = (db) => {
 
                 return res.status(404).json({ error: 'License key not found' });
             }
+
+            // Debug: Show raw license object
+            console.log('🔍 [' + requestId + '] Raw license object from DB:');
+            console.log(JSON.stringify(license, null, 2));
             
             console.log('✅ [' + requestId + '] License found:');
-            console.log('   - Kiosk Name:', license.kiosk_name);
-            console.log('   - Status:', license.status);
-            console.log('   - Issued At:', license.issued_at);
-            console.log('   - Expires At:', license.expires_at);
+            console.log('   - License Key:', license.license_key || 'N/A');
+            console.log('   - Kiosk Name:', license.kiosk_name || 'N/A');
+            console.log('   - Status:', license.status || 'N/A');
+            console.log('   - Issued At:', license.issued_at || 'N/A');
+            console.log('   - Expires At:', license.expires_at || 'N/A');
             console.log('   - Currently Activated:', license.device_id_hash ? 'Yes' : 'No');
+            console.log('   - Location:', `${license.location_restaurant || 'N/A'}, ${license.location_country || 'N/A'}`);
 
             // Check if already activated
             if (license.status === 'active' && license.device_id_hash) {
@@ -182,7 +189,7 @@ module.exports = (db) => {
 
                     console.log('📤 [' + requestId + '] Sending response with existing license');
                     console.log('='.repeat(80) + '\n');
-                    
+
                     return res.json({
                         success: true,
                         license: { ...licenseResponse, signature }
@@ -212,7 +219,7 @@ module.exports = (db) => {
                 console.log('❌ [' + requestId + '] License has been revoked');
                 console.log('   - Reason:', license.revoke_reason);
                 console.log('='.repeat(80) + '\n');
-                
+
                 db.logValidation({
                     licenseKey,
                     deviceIdHash: hashDeviceId(deviceId),
@@ -234,7 +241,7 @@ module.exports = (db) => {
                 console.log('❌ [' + requestId + '] License has expired');
                 console.log('   - Expired At:', license.expires_at);
                 console.log('='.repeat(80) + '\n');
-                
+
                 db.logValidation({
                     licenseKey,
                     deviceIdHash: hashDeviceId(deviceId),
@@ -315,10 +322,10 @@ module.exports = (db) => {
         console.log('📋 Request Details:');
         console.log('   - Timestamp:', new Date().toISOString());
         console.log('   - IP Address:', req.ip);
-        
+
         try {
             const { licenseKey, deviceId } = req.body;
-            
+
             console.log('📝 Request Body:');
             console.log('   - License Key:', licenseKey || 'MISSING');
             console.log('   - Device ID:', deviceId ? `${deviceId.substring(0, 12)}...` : 'MISSING');
@@ -335,7 +342,7 @@ module.exports = (db) => {
             if (!license) {
                 console.log('❌ [' + requestId + '] License not found');
                 console.log('-'.repeat(80) + '\n');
-                
+
                 db.logValidation({
                     licenseKey,
                     deviceIdHash: hashDeviceId(deviceId),
@@ -348,7 +355,7 @@ module.exports = (db) => {
 
                 return res.status(404).json({ error: 'License not found' });
             }
-            
+
             console.log('✅ [' + requestId + '] License found - Status:', license.status);
 
             // Check device ID
