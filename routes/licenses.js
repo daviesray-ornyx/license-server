@@ -129,10 +129,25 @@ module.exports = (db) => {
             // Get license
             console.log('🔍 [' + requestId + '] Looking up license in database...');
             console.log('   - License Key to lookup:', licenseKey);
+            
+            // Check if license exists at all
+            const allLicenses = db.getAllLicenses({ limit: 10 });
+            console.log('📊 [' + requestId + '] Total licenses in database:', allLicenses.length);
+            if (allLicenses.length > 0) {
+                console.log('📋 [' + requestId + '] Sample license keys in DB:');
+                allLicenses.forEach((lic, idx) => {
+                    console.log(`   ${idx + 1}. ${lic.license_key}`);
+                });
+            } else {
+                console.log('⚠️  [' + requestId + '] Database is EMPTY - No licenses found!');
+            }
+            
             const license = db.getLicenseByKey(licenseKey);
 
             if (!license) {
                 console.log('❌ [' + requestId + '] License not found in database');
+                console.log('   - Searched for:', licenseKey);
+                console.log('   - Exact match required (case-sensitive)');
                 console.log('='.repeat(80) + '\n');
                 
                 db.logValidation({
@@ -145,13 +160,16 @@ module.exports = (db) => {
                     userAgent: req.headers['user-agent']
                 });
 
-                return res.status(404).json({ error: 'License key not found' });
+                return res.status(404).json({ 
+                    error: 'License key not found',
+                    hint: 'Please generate a license first using the admin portal'
+                });
             }
 
             // Debug: Show raw license object
             console.log('🔍 [' + requestId + '] Raw license object from DB:');
             console.log(JSON.stringify(license, null, 2));
-            
+
             console.log('✅ [' + requestId + '] License found:');
             console.log('   - License Key:', license.license_key || 'N/A');
             console.log('   - Kiosk Name:', license.kiosk_name || 'N/A');
